@@ -1,3 +1,32 @@
+// ---- TITLE SCREEN ----
+const TITLE_CELLS = [604,605,606,607,608,611,612,613,616,617,618,622,623,624,628,634,635,636,637,638,640,641,642,643,644,647,656,660,666,669,672,675,678,684,690,694,697,706,710,714,716,720,722,726,728,734,740,744,747,756,760,764,766,770,772,776,778,784,785,786,787,793,797,806,810,814,816,820,822,826,828,834,840,842,847,856,860,864,866,869,872,875,878,884,890,893,906,911,912,913,916,917,918,922,923,924,928,929,930,931,932,934,935,936,937,938,940,944,947];
+
+let titleActive = true;
+
+function showTitleScreen() {
+  titleActive = true;
+  const gridContainer = document.getElementById('gridContainer');
+  gridContainer.innerHTML = '';
+  for (let i = 0; i < 2500; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.backgroundColor = TITLE_CELLS.includes(i) ? '#e8956d' : '#ffffff';
+    gridContainer.appendChild(cell);
+  }
+  document.getElementById('gameStatus').innerHTML = '<div class="title-tap">Tap to play!</div>';
+  function startFromTitle() {
+    titleActive = false;
+    document.getElementById('gameStatus').innerHTML = '';
+    gridContainer.removeEventListener('click', startFromTitle);
+    gridContainer.removeEventListener('touchstart', startFromTitle);
+    document.removeEventListener('keydown', startFromTitle);
+    newGame();
+  }
+  gridContainer.addEventListener('click', startFromTitle, { once: true });
+  gridContainer.addEventListener('touchstart', startFromTitle, { once: true, passive: true });
+  document.addEventListener('keydown', startFromTitle, { once: true });
+}
+
 let gameState = {
     cells: [],
     filledIndices: [],
@@ -746,5 +775,5 @@ document.addEventListener('DOMContentLoaded', function() {
     updateFieldDisplay();
     updateLockDisplay();
     updateDistanceDisplay();
-    newGame();
+    showTitleScreen();
 });
