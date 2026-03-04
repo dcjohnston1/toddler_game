@@ -220,3 +220,16 @@ body {
 .new-game-btn:hover {
     background-color: #1e7e34;
 }
+
+.title-tap {
+  font-size: clamp(14px, 3vw, 22px);
+  color: #e8956d;
+  font-weight: bold;
+  text-align: center;
+  letter-spacing: 2px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
