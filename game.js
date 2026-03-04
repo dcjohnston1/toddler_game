@@ -206,21 +206,13 @@ function calculateDistance(row1, col1, row2, col2) {
 function updateGameDisplay() {
     if (gameState.gameOver || gameState.cWins) {
         if (gameState.cWins) {
-            document.getElementById('gameStatus').innerHTML = '<div class="game-win">GAME OVER: C WINS</div>';
+            document.getElementById('gameStatus').innerHTML = '<div class="game-win">Toddler Wins!</div>';
         } else {
             document.getElementById('gameStatus').innerHTML = '<div class="game-over">GAME OVER</div>';
         }
-        document.getElementById('upBtn').disabled = true;
-        document.getElementById('downBtn').disabled = true;
-        document.getElementById('leftBtn').disabled = true;
-        document.getElementById('rightBtn').disabled = true;
         return;
     } else {
         document.getElementById('gameStatus').innerHTML = '';
-        document.getElementById('upBtn').disabled = false;
-        document.getElementById('downBtn').disabled = false;
-        document.getElementById('leftBtn').disabled = false;
-        document.getElementById('rightBtn').disabled = false;
     }
 
     // Clear all cells
@@ -433,6 +425,7 @@ function moveC(direction) {
             }
 
             gameState.cWins = true;
+            playCelebrationSound();
             updateGameDisplay();
             return;
         } else {
@@ -442,6 +435,7 @@ function moveC(direction) {
     }
 
     // Valid move
+    playMoveSound(direction);
     gameState.cIndex = newIndex;
     updateGameDisplay();
 }
@@ -590,6 +584,151 @@ function newGame() {
 
     updateGameDisplay();
 }
+
+// Nintendo-style move sounds using Web Audio API
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playMoveSound(direction) {
+    const frequencies = { up: 523, down: 330, left: 392, right: 440 };
+    const freq = frequencies[direction] || 440;
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.setValueAtTime(freq * 1.25, audioCtx.currentTime + 0.04);
+
+    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.12);
+}
+
+function playCelebrationSound() {
+    const melody = [
+        [523, 0.00], [659, 0.10], [784, 0.20], [1047, 0.30],
+        [784, 0.45], [1047, 0.55], [1319, 0.65]
+    ];
+
+    melody.forEach(([freq, time]) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + time);
+
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime + time);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + time + 0.18);
+
+        osc.start(audioCtx.currentTime + time);
+        osc.stop(audioCtx.currentTime + time + 0.18);
+    });
+}
+
+// Trackpad support for mobile
+(function() {
+    const DEAD_ZONE = 18;   // px from center before movement triggers
+    const MOVE_MS   = 180;  // ms between repeated moves
+
+    function initTrackpad() {
+        const pad = document.getElementById('trackpad');
+        const dot = document.getElementById('trackpadDot');
+        if (!pad) return;
+
+        let interval = null;
+        let activeDir = null;
+        let mouseDown = false;
+
+        function padCenter() {
+            const r = pad.getBoundingClientRect();
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        }
+
+        function directionFrom(dx, dy) {
+            if (Math.abs(dx) < DEAD_ZONE && Math.abs(dy) < DEAD_ZONE) return null;
+            return Math.abs(dx) > Math.abs(dy)
+                ? (dx > 0 ? 'right' : 'left')
+                : (dy > 0 ? 'down' : 'up');
+        }
+
+        function setDirection(dir) {
+            if (dir === activeDir) return;
+            activeDir = dir;
+            clearInterval(interval);
+            interval = null;
+            if (dir) {
+                moveC(dir);
+                interval = setInterval(() => moveC(dir), MOVE_MS);
+            }
+        }
+
+        function update(clientX, clientY) {
+            const c = padCenter();
+            const dx = clientX - c.x;
+            const dy = clientY - c.y;
+            const maxOff = 50;
+            dot.style.transform = `translate(calc(-50% + ${Math.max(-maxOff, Math.min(maxOff, dx))}px), calc(-50% + ${Math.max(-maxOff, Math.min(maxOff, dy))}px))`;
+            setDirection(directionFrom(dx, dy));
+        }
+
+        function stop() {
+            pad.classList.remove('active');
+            dot.style.transform = 'translate(-50%, -50%)';
+            setDirection(null);
+        }
+
+        // Touch
+        pad.addEventListener('touchstart', e => {
+            e.preventDefault();
+            pad.classList.add('active');
+            update(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+
+        pad.addEventListener('touchmove', e => {
+            e.preventDefault();
+            update(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+
+        pad.addEventListener('touchend', e => { e.preventDefault(); stop(); }, { passive: false });
+        pad.addEventListener('touchcancel', e => { e.preventDefault(); stop(); }, { passive: false });
+
+        // Mouse fallback for desktop testing
+        pad.addEventListener('mousedown', e => {
+            mouseDown = true;
+            pad.classList.add('active');
+            update(e.clientX, e.clientY);
+        });
+        document.addEventListener('mousemove', e => { if (mouseDown) update(e.clientX, e.clientY); });
+        document.addEventListener('mouseup', () => { if (mouseDown) { mouseDown = false; stop(); } });
+    }
+
+    document.addEventListener('DOMContentLoaded', initTrackpad);
+})();
+
+function toggleSettings() {
+    document.getElementById('settingsPanel').classList.toggle('open');
+}
+
+// Arrow key support
+document.addEventListener('keydown', function(e) {
+    const directionMap = {
+        'ArrowUp': 'up',
+        'ArrowDown': 'down',
+        'ArrowLeft': 'left',
+        'ArrowRight': 'right'
+    };
+    if (directionMap[e.key]) {
+        e.preventDefault();
+        moveC(directionMap[e.key]);
+    }
+});
 
 // Initialize slider event listeners and start new game when page loads
 document.addEventListener('DOMContentLoaded', function() {
